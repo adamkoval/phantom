@@ -21,7 +21,7 @@ module eos_stamatellos
  real,allocatable,public :: optable(:,:,:)
  real,allocatable,public :: Gpot_cool(:),duFLD(:),gradP_cool(:),lambda_FLD(:),urad_FLD(:) !gradP_cool=gradP/rho
  real,allocatable,public :: ttherm_store(:),ueqi_store(:),duSPH(:)
- real,allocatable,public :: du_store(:),tau_store(:) ! Only saved to write to dumps
+ real,allocatable,public :: du_store(:),tau_store(:),presi_store(:) ! Only saved to write to dumps
  character(len=25), public :: eos_file= 'eos_lom.dat' !default name of tabulated EOS file
  logical,public :: doFLD = .True., floor_energy = .False.
  integer,public :: iunitst=19
@@ -48,6 +48,7 @@ subroutine init_coolra()
     call allocate_array('ueqi_store',ueqi_store,maxp)
     call allocate_array('tau_store',tau_store,maxp)
     call allocate_array('du_store',du_store,maxp)
+    call allocate_array('presi_store',presi_store,maxp)
  endif
 
  Gpot_cool(:) = 0d0

@@ -543,6 +543,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  endif
 
  omega(:) = omega(:)/utime
+!  h_smooth(:) = h_smooth(:)*udist
 
  Keplog = 1.5
  unit_force = (unit_velocity/utime)

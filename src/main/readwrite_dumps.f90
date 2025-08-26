@@ -67,7 +67,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use timestep,   only:dtmax,idtmax_n,idtmax_frac
  use part,       only:ibin,krome_nmols,T_gas_cool
  use metric_tools, only:imetric, imet_et
- use eos_stamatellos, only:ttherm_store,ueqi_store,tau_store,du_store
+ use eos_stamatellos, only:ttherm_store,ueqi_store,tau_store,du_store,presi_store
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in), optional :: iorder(:)
@@ -246,6 +246,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,ttherm_store,'ttherm',npart,k,ipass,idump,nums,nerr)
           call write_array(1,tau_store,'taumean',npart,k,ipass,idump,nums,nerr)
           call write_array(1,du_store,'dudt',npart,k,ipass,idump,nums,nerr)
+          call write_array(1,presi_store,'presi',npart,k,ipass,idump,nums,nerr)
        endif
        ! smoothing length written as real*4 to save disk space
        call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,nerr,use_kind=4,index=4)

@@ -42,7 +42,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer :: iunit=26,j,npt
  integer :: i,gascount=0,sinkcount=0,othercount=0
  real    :: newutime,newuvel,temperature1,temperature2
- character(len=1) :: trim,addsink
+ character(len=1) :: trim,addsink,convert_units
  character(len=25) :: junk
 
  print*,' *** Importing sphNG dump file ***'
@@ -99,32 +99,54 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  close(iunit)
 
  print *, 'dtmax_max,dtmax_min',dtmax_max,dtmax_min
- newutime = sqrt(au**3/(gg*umass))
- print *, "newutime/old", newutime/utime
- time = time * utime / newutime
- dt = dt * utime / newutime
- print *, "Converting units to au"
- xyzh(:,:) = xyzh(:,:) * udist / au
- newuvel = (au/newutime)
- vxyzu(1:3,:) = vxyzu(1:3,:) * unit_velocity / newuvel
- ! energy
- vxyzu(4,:) = vxyzu(4 ,:) * unit_energ / (umass * newuvel**2)
- if (nptmass > 0) then
-    xyzmh_ptmass(1:3,:) =  xyzmh_ptmass(1:3,:) * udist / au
-    xyzmh_ptmass(5:6,:) =  xyzmh_ptmass(5:6,:) * udist / au
-    !spin angular momentum M L**2 T-1
-    xyzmh_ptmass(8:10,:) =  xyzmh_ptmass(8:10,:) * (umass * udist**2/ utime) /&
-         (umass * au**2/newutime)
-    vxyz_ptmass(:,:) = vxyz_ptmass(:,:) * unit_velocity / newuvel
+
+ ! Debug units
+ call print_units
+ print *, 'DEBUG: udist = ', udist
+ print *, 'DEBUG: au = ', au
+ print *, 'DEBUG: conversion factor = ', udist/au
+
+ ! Ask user if they want to convert units
+ call prompt('Do you want to convert units to AU? (y/n)',convert_units)
+
+ if (index(convert_units,"y") > 0) then
+    print *, 'Converting units to AU'
+    print *, 'Original units:'
+    print *, 'udist, utime, uvel', udist, utime, unit_velocity
+
+    newutime = sqrt(au**3/(gg*umass))
+    newuvel = (au/newutime)
+    print *, "New units:"
+    print *, "newudist (au), newutime, newuvel", au, newutime, newuvel
+    
+    print *, "newutime/old", newutime/utime
+    time = time * utime / newutime
+    dt = dt * utime / newutime
+    print *, "Converting units to au"
+    xyzh(:,:) = xyzh(:,:) * udist / au
+    vxyzu(1:3,:) = vxyzu(1:3,:) * unit_velocity / newuvel
+    ! energy
+    vxyzu(4,:) = vxyzu(4 ,:) * unit_energ / (umass * newuvel**2)
+    if (nptmass > 0) then
+       xyzmh_ptmass(1:3,:) =  xyzmh_ptmass(1:3,:) * udist / au
+       xyzmh_ptmass(5:6,:) =  xyzmh_ptmass(5:6,:) * udist / au
+       !spin angular momentum M L**2 T-1
+       xyzmh_ptmass(8:10,:) =  xyzmh_ptmass(8:10,:) * (umass * udist**2/ utime) /&
+            (umass * au**2/newutime)
+       vxyz_ptmass(:,:) = vxyz_ptmass(:,:) * unit_velocity / newuvel
+    endif
+    
+    udist = au
+    utime = newutime
+    call set_units(udist,umass,utime)
+    call set_units_extra()
+    call print_units
+ else
+    print *, "Keeping original sphNG units"
  endif
 
- udist = au
- utime = newutime
- call set_units(udist,umass,utime)
- call set_units_extra()
- call print_units
-
  print *, "Converted to au units"
+ print *, "Final units summary:"
  print *, "max/min x=", maxval(xyzh(1,:)), minval(xyzh(1,:))
  print *, "max/min vel", maxval(vxyzu(1,:)), minval(vxyzu(1,:))
  print *, "max/min u", maxval(vxyzu(4,:)), minval(vxyzu(4,:))
@@ -180,7 +202,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print *, 'Timestep info:'
  print *, 'dtmax_max,dtmax_min', dtmax_max,dtmax_min
  print *, 'utime=', utime
-
+!  return
 end subroutine modify_dump
 
 real function calc_temp(u)
@@ -190,7 +212,7 @@ real function calc_temp(u)
  real, intent(in) :: u
  ! (gmw = mean molecular weight)
  calc_temp = atomic_mass_unit * gmw * u * unit_ergg / ( kboltz * gamma )
-
+!  return
 end function calc_temp
 
 end module moddump

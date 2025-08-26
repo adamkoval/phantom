@@ -113,7 +113,7 @@ subroutine radcool_update_du(i,xi,yi,zi,rhoi,ui,duhydro,Tfloor)
  use physcon,  only:steboltz,pi,solarl,kb_on_mh,piontwo,rpiontwo
  use units,    only:umass,udist,unit_density,unit_ergg,utime,unit_pressure
  use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool,&
-          duFLD,doFLD,ttherm_store,ueqi_store,tau_store,du_store
+          duFLD,doFLD,ttherm_store,ueqi_store,tau_store,du_store,presi_store
  use part,       only:xyzmh_ptmass,igas,eos_vars,iTemp
  integer,intent(in) :: i
  real,intent(in) :: xi,yi,zi,rhoi
@@ -147,8 +147,8 @@ subroutine radcool_update_du(i,xi,yi,zi,rhoi,ui,duhydro,Tfloor)
  call getopac_opdep(ui_cgs,rhoi_cgs,kappaBari,kappaParti,&
            Ti,gmwi)
  eos_vars(iTemp,i) = Ti ! save temperature
- presi = kb_on_mh*rhoi*unit_density*Ti/gmwi ! cgs
- presi = presi/unit_pressure !code units
+ presi_store(i) = kb_on_mh*rhoi*unit_density*Ti/gmwi ! cgs
+ presi = presi_store(i)/unit_pressure !code units
 
  select case (od_method)
  case (1)
