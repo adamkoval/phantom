@@ -61,6 +61,7 @@ endif
 # endian can be "BIG", "LITTLE" or anything else which has no effect
 #
 # ENDIAN= default
+ENDIAN= BIG
 #
 CC = gcc
 CCFLAGS = -O5
