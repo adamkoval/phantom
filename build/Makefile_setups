@@ -942,6 +942,15 @@ ifeq ($(SETUP), sgdisc)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), misalignedsgdisc)
+#   self-gravitating disc
+    IND_TIMESTEPS=yes
+    GRAVITY=yes
+    SETUPFILE= setup_disc.f90
+    ANALYSIS = utils_getneighbours.F90 utils_omp.F90 analysis_disc_stresses_misaligned.f90
+    KNOWN_SETUP=yes
+endif
+
 ifeq ($(SETUP), dustysgdisc)
 #   self-gravitating dustydisc
     SETUPFILE= setup_disc.f90
