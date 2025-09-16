@@ -53,6 +53,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use part,    only:gravity,mhd,eos_vars,nptmass,xyzmh_ptmass,vxyz_ptmass,isdead_or_accreted
  use eos,     only:ieos
  use eos_stamatellos, only:eos_file,read_optab,optable
+ use readwrite_dumps, only:write_smalldump
 
  character(len=*), intent(in) :: dumpfile
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
@@ -161,6 +162,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 ! Write out data to file
  call write_radial_data(iunit,output,time,L_tot,rotate_about_z,rotate_about_y)
+
+! Write small dump
+ print*, 'Writing small dump of rotated coordinates to ', trim(dumpfile)//'_rot'
+ call write_smalldump(time,dumpfile//'_rot')
 
 ! End of analysis
  call deallocate_arrays
