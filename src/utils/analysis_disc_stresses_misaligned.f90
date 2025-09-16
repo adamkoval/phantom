@@ -94,12 +94,15 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  ! Center disc and get angular momentum vector
  if (nptmass > 0) then
-    call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+   !  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
     ! Find most massive sink
     imax_mass = maxloc(xyzmh_ptmass(4,1:nptmass), 1)
     disc_center = xyzmh_ptmass(1:3,imax_mass)
     do i=1,npart
       xyzh(1:3,i) = xyzh(1:3,i) - disc_center
+    enddo
+    do i=1,nptmass
+      xyzmh_ptmass(1:3,i) = xyzmh_ptmass(1:3,i) - disc_center
     enddo
     print*, 'Centering disc on most massive sink, ID ', imax_mass, ' at ', disc_center
 
