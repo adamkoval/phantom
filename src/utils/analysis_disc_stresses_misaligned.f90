@@ -25,6 +25,7 @@ module analysis
  use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                            neighcount,neighb,neighmax
  use eos_stamatellos,  only:du_store
+ use centreofmass,     only:reset_centreofmass,get_total_angular_momentum
  implicit none
  character(len=20), parameter, public :: analysistype = 'disc_stresses_misaligned'
  public :: do_analysis, radial_binning, calc_gravitational_forces
@@ -38,6 +39,7 @@ module analysis
  real,    allocatable,dimension(:)   :: alpha_reyn,alpha_grav,alpha_mag,alpha_art
  real,    allocatable,dimension(:)   :: rpart,phipart,vrpart,vphipart, gr,gphi,Br,Bphi
  real,    allocatable,dimension(:,:) :: gravxyz,zsetgas
+ real,    allocatable,dimension(:)   :: mean_z,mean_vz,rms_z,rms_vz
 
  logical :: write_neighbour_list = .true.  ! Write the neighbour list to file, if true
 
@@ -48,10 +50,9 @@ contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,      only:fatal
- use part,    only:gravity,mhd,eos_vars,nptmass,xyzmh_ptmass,vxyz_ptmass
+ use part,    only:gravity,mhd,eos_vars,nptmass,xyzmh_ptmass,vxyz_ptmass,isdead_or_accreted
  use eos,     only:ieos
  use eos_stamatellos, only:eos_file,read_optab,optable
- use centreofmass,     only:reset_centreofmass,get_total_angular_momentum
 
  character(len=*), intent(in) :: dumpfile
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
@@ -61,7 +62,15 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  character(len=9) :: output
  integer          :: ierr
 
- real, dimension(3) :: L_tot
+ integer :: i
+ integer :: imax_mass
+ real, dimension(3) :: disc_center
+
+ real, dimension(3) :: L_tot, L_tot_local
+ integer :: npartlocal, ilocal
+ real, allocatable :: xyzh_local(:,:), vxyzu_local(:,:)
+ real, parameter :: sphere_radius = 100.0
+ real :: rotate_about_z, rotate_about_y
 
  ! Code calculates the following alphas:
  ! Reynolds stress: 2*dvr*dvphi/3*cs^2
@@ -85,15 +94,53 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  ! Center disc and get angular momentum vector
  if (nptmass > 0) then
     call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
-    call get_total_angular_momentum(xyzh,vxyzu,npart,L_tot,xyzmh_ptmass,vxyz_ptmass,nptmass)
-    print*, 'Disc centered on sink'
+    ! Find most massive sink
+    imax_mass = maxloc(xyzmh_ptmass(4,1:nptmass), 1)
+    disc_center = xyzmh_ptmass(1:3,imax_mass)
+    do i=1,npart
+      xyzh(1:3,i) = xyzh(1:3,i) - disc_center
+    enddo
+    print*, 'Centering disc on most massive sink, ID ', imax_mass, ' at ', disc_center
+
+    ! Find local L around centered sink
+    npartlocal = 0
+    do i=1, npart
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+          if (sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2) <= sphere_radius) then
+            npartlocal = npartlocal + 1
+          endif
+       endif
+    enddo
+
+    print*, 'Found', npartlocal, ' active particles within ', sphere_radius, 'AU of sink'
+
+    ! Allocate local arrays
+    allocate(xyzh_local(4,npartlocal))
+    allocate(vxyzu_local(4,npartlocal))
+
+    ! Populate local arrays
+    ilocal=0
+    do i=1, npart
+      if (.not.isdead_or_accreted(xyzh(4,i))) then
+          if (sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2) <= sphere_radius) then
+            ilocal = ilocal + 1
+            xyzh_local(:,ilocal) = xyzh(:,i)
+            vxyzu_local(:,ilocal) = vxyzu(:,i)
+          endif
+       endif
+    enddo
+
+    call get_total_angular_momentum(xyzh_local,vxyzu_local,npartlocal,L_tot_local,&
+                                 xyzmh_ptmass,vxyz_ptmass,nptmass)
+    L_tot = L_tot_local
+   !  print*, 'Disc centered on sink'
  else
     call reset_centreofmass(npart,xyzh,vxyzu)
     call get_total_angular_momentum(xyzh,vxyzu,npart,L_tot)
     print*, 'Disc centered on gas COM'
  endif
 
- call rotate_coordinates(npart,xyzh,vxyzu,L_tot)
+ call rotate_coordinates(npart,xyzh,vxyzu,L_tot,rotate_about_z,rotate_about_y)
 
  if (gravity) then
 ! Calculate gravitational forces for all particles (gradient of the potential)
@@ -113,7 +160,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  call calc_stresses(npart,xyzh,vxyzu,pmass)
 
 ! Write out data to file
- call write_radial_data(iunit,output,time)
+ call write_radial_data(iunit,output,time,L_tot,rotate_about_z,rotate_about_y)
 
 ! End of analysis
  call deallocate_arrays
@@ -128,37 +175,41 @@ end subroutine do_analysis
 ! Rotates particle coordinates to align disc plane with xy-plane
 !+
 !-------------------------------------------
-subroutine rotate_coordinates(npart,xyzh,vxyzu,L_tot)
+subroutine rotate_coordinates(npart,xyzh,vxyzu,L_tot,rotate_about_z,rotate_about_y)
  use vectorutils, only:rotatevec
  use physcon, only:pi
 
  integer, intent(in) :: npart
  real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real, intent(in) :: L_tot(3)
+ real, intent(out) :: rotate_about_z, rotate_about_y
 
  integer :: i
  real, dimension(3) :: temp, pos_vec, vel_vec
- real :: rotate_about_z, rotate_about_y, temp_mag, L_tot_mag
+ real :: temp_mag, L_tot_mag, L_tot_rotated(3)
 
  ! Rotate so that L_tot is along z-axis
  temp = (/L_tot(1),L_tot(2),0./)
  temp_mag = sqrt(dot_product(temp,temp))
 
- if (temp_mag > tiny(temp_mag)) then
+ if (temp_mag > tiny(temp_mag) .and. abs(temp(2)) > tiny(temp(2))) then
    rotate_about_z = -acos(dot_product((/1.,0.,0./),temp/temp_mag))*temp(2)/abs(temp(2))
  else
    rotate_about_z = 0.
  endif
 
  ! Now rotate about y-axis to get L_tot along z-axis
- L_tot_mag = sqrt(dot_product(L_tot,L_tot))
+ L_tot_rotated = L_tot
+ call rotatevec(L_tot_rotated,(/0.,0.,1./),rotate_about_z)
+ L_tot_mag = sqrt(dot_product(L_tot_rotated,L_tot_rotated))
  if (L_tot_mag > tiny(L_tot_mag)) then
-   rotate_about_y = -acos(dot_product((/0.,0.,1./),L_tot/L_tot_mag))
+   rotate_about_y = -acos(dot_product((/0.,0.,1./),L_tot_rotated/L_tot_mag))
  else
    rotate_about_y = 0.
  endif
 
- print*, 'Disc angular momentum vector:', L_tot
+ print*, 'Original disc angular momentum vector L_tot:', L_tot
+ print*, 'After z-rotation L_tot_rotated:', L_tot_rotated
  print*, 'Rotation angles - about z:', rotate_about_z*180./pi, ' about y:', rotate_about_y*180./pi
 
  ! Rotate all particle positions and velocities
@@ -175,6 +226,11 @@ subroutine rotate_coordinates(npart,xyzh,vxyzu,L_tot)
    call rotatevec(vel_vec,(/0.,1.,0./),rotate_about_y)
    vxyzu(1:3,i) = vel_vec
  enddo
+
+ ! Verify rotation
+ call get_total_angular_momentum(xyzh,vxyzu,npart,L_tot_rotated)
+ print*, 'Final L_tot after rotation:', L_tot_rotated
+ print*, 'Should be close to (0,0,|L|):', sqrt(dot_product(L_tot_rotated,L_tot_rotated))
 
 end subroutine rotate_coordinates
 
@@ -478,6 +534,10 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  allocate(part_scaleheight(nbins))
  allocate(tcool(nbins))
  allocate(h_smooth(nbins))
+ allocate(mean_z(nbins))
+ allocate(rms_z(nbins))
+ allocate(mean_vz(nbins))
+ allocate(rms_vz(nbins))
 
  ipartbin(:) = 0
  ninbin(:) = 0.0
@@ -489,6 +549,10 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  part_scaleheight(:) = 0.0
  tcool(:) = 0.0
  h_smooth(:) = 0.
+ mean_z(:) = 0.0
+ rms_z(:) = 0.0
+ mean_vz(:) = 0.0
+ rms_vz(:) = 0.0
 
  allocate(zsetgas(npart,nbins),stat=iallocerr)
  ! If you don't have enough memory to allocate zsetgas, then calculate H the slow way with less memory.
@@ -532,6 +596,9 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
        area = pi*((rad(ibin)+0.5*dr)**2-(rad(ibin)- 0.5*dr)**2)
        sigma(ibin) = sigma(ibin) + pmass/area
 
+       mean_z(ibin) = mean_z(ibin) + xyzh(3,ipart)
+       mean_vz(ibin) = mean_vz(ibin) + vxyzu(3,ipart)
+
        vrbin(ibin) = vrbin(ibin) + vrpart(ipart)
        vphibin(ibin) = vphibin(ibin) + vphipart(ipart)
        omega(ibin) = omega(ibin) + vphipart(ipart)/rad(ibin)
@@ -556,6 +623,8 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
     vphibin(:) = vphibin(:)/ninbin(:)
     omega(:) = omega(:)/ninbin(:)
     h_smooth(:) = h_smooth(:)/ninbin(:)
+    mean_z(:) = mean_z(:)/ninbin(:)
+    mean_vz(:) = mean_vz(:)/ninbin(:)
  end where
  if (do_tcool) then
      where(ninbin(:)/=0)
@@ -563,6 +632,26 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
        tcool(:) = abs(tcool(:))*utime
     end where
  endif
+
+ ! Calculate rms values
+ do ipart=1,npart
+   if (.not.isdead_or_accreted(xyzh(4,ipart))) then
+      ibin = ipartbin(ipart)
+      if (ibin>0 .and. ibin<=nbins) then
+         rms_z(ibin) = rms_z(ibin) + (xyzh(3,ipart)-mean_z(ibin))**2
+         rms_vz(ibin) = rms_vz(ibin) + (vxyzu(3,ipart)-mean_vz(ibin))**2
+      endif
+   endif
+ enddo
+
+ ! Normalise and bin rms values
+ where(ninbin(:)/=0)
+    rms_z(:) = sqrt(rms_z(:)/(ninbin(:)-1))
+    rms_vz(:) = sqrt(rms_vz(:)/(ninbin(:)-1))
+ elsewhere
+    rms_z(:) = 0.0
+    rms_vz(:) = 0.0
+ end where
 
  print*, 'Binning Complete'
 
@@ -712,17 +801,25 @@ end subroutine calc_stresses
 ! Writes radially binned data to file
 !+
 !--------------------------------------------------------------
-subroutine write_radial_data(iunit,output,time)
+subroutine write_radial_data(iunit,output,time,L_tot,rotate_about_z,rotate_about_y)
+ use physcon, only: pi
+
  implicit none
+
  integer, intent(in) :: iunit
  real, intent(in) :: time
+ real, intent(in) :: L_tot(3)
+ real, intent(in) :: rotate_about_z, rotate_about_y
  character(len=*) :: output
  integer :: ibin
 
  print '(a,a)', 'Writing to file ',output
  open(iunit,file=output)
  write(iunit,'("# Disc Stress data at t = ",es20.12)') time
- write(iunit,"('#',14(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(iunit,'("# Disc angular momentum vector: ",3(es20.12,1x))') L_tot(1),L_tot(2),L_tot(3)
+ write(iunit,'("# Rotation angles - about z (deg): ",es20.12)') rotate_about_z*180./pi
+ write(iunit,'("# Rotation angles - about y (deg): ",es20.12)') rotate_about_y*180./pi
+ write(iunit,"('#',18(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'radius (AU)', &
        2,'sigma (cgs)', &
        3,'cs (cgs)', &
@@ -736,13 +833,17 @@ subroutine write_radial_data(iunit,output,time)
        11,'alpha_art',&
        12,'particle H (au)',&
        13,'t_cool',&
-       14,'<h>'
+       14,'<h>',&
+       15,'mean_z',&
+       16,'rms_z',&
+       17,'mean_vz',&
+       18,'rms_vz'
 
  do ibin=1,nbins
-    write(iunit,'(14(es18.10,1X))') rad(ibin),sigma(ibin),csbin(ibin), &
+    write(iunit,'(18(es18.10,1X))') rad(ibin),sigma(ibin),csbin(ibin), &
             omega(ibin),epicyc(ibin),H(ibin), abs(toomre_q(ibin)),alpha_reyn(ibin), &
             alpha_grav(ibin),alpha_mag(ibin),alpha_art(ibin),part_scaleheight(ibin),&
-            tcool(ibin),h_smooth(ibin)
+            tcool(ibin),h_smooth(ibin),mean_z(ibin),rms_z(ibin),mean_vz(ibin),rms_vz(ibin)
  enddo
 
  close(iunit)
@@ -787,6 +888,7 @@ subroutine deallocate_arrays
  deallocate(sigma,csbin,H,toomre_q,omega,epicyc)
  deallocate(alpha_reyn,alpha_grav,alpha_mag,alpha_art)
  deallocate(part_scaleheight,h_smooth)
+ deallocate(mean_z,mean_vz,rms_z,rms_vz)
  if (allocated(tcool)) deallocate(tcool)
 
 
