@@ -42,7 +42,8 @@ module analysis
  real,    allocatable,dimension(:)   :: mean_z,mean_vz,rms_z,rms_vz
 
  logical :: write_neighbour_list = .true.  ! Write the neighbour list to file, if true
-
+ logical :: write_smalldump = .true.        ! Write a small dump of the rotated coordinates
+ real, parameter :: sphere_radius = 100.0 ! Radius around sink to consider for disc angular momentum calculation
 
  private
 
@@ -70,7 +71,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real, dimension(3) :: L_tot, L_tot_local
  integer :: npartlocal, ilocal
  real, allocatable :: xyzh_local(:,:), vxyzu_local(:,:)
- real, parameter :: sphere_radius = 100.0
  real :: rotate_about_z, rotate_about_y
 
  ! Code calculates the following alphas:
