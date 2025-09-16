@@ -943,7 +943,7 @@ ifeq ($(SETUP), sgdisc)
 endif
 
 ifeq ($(SETUP), misalignedsgdisc)
-#   self-gravitating disc
+#   self-gravitating misaligned disc
     IND_TIMESTEPS=yes
     GRAVITY=yes
     SETUPFILE= setup_disc.f90
