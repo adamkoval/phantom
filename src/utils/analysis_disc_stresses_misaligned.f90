@@ -180,71 +180,6 @@ end subroutine do_analysis
 
 !-------------------------------------------
 !+
-! Rotates particle coordinates to align disc plane with xy-plane
-!+
-!-------------------------------------------
-subroutine rotate_coordinates(npart,xyzh,vxyzu,L_tot,rotate_about_z,rotate_about_y)
- use vectorutils, only:rotatevec
- use physcon, only:pi
-
- integer, intent(in) :: npart
- real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real, intent(in) :: L_tot(3)
- real, intent(out) :: rotate_about_z, rotate_about_y
-
- integer :: i
- real, dimension(3) :: temp, pos_vec, vel_vec
- real :: temp_mag, L_tot_mag, L_tot_rotated(3)
-
- ! Rotate so that L_tot is along z-axis
- temp = (/L_tot(1),L_tot(2),0./)
- temp_mag = sqrt(dot_product(temp,temp))
-
- if (temp_mag > tiny(temp_mag) .and. abs(temp(2)) > tiny(temp(2))) then
-   rotate_about_z = -acos(dot_product((/1.,0.,0./),temp/temp_mag))*temp(2)/abs(temp(2))
- else
-   rotate_about_z = 0.
- endif
-
- ! Now rotate about y-axis to get L_tot along z-axis
- L_tot_rotated = L_tot
- call rotatevec(L_tot_rotated,(/0.,0.,1./),rotate_about_z)
- L_tot_mag = sqrt(dot_product(L_tot_rotated,L_tot_rotated))
- if (L_tot_mag > tiny(L_tot_mag)) then
-   rotate_about_y = -acos(dot_product((/0.,0.,1./),L_tot_rotated/L_tot_mag))
- else
-   rotate_about_y = 0.
- endif
-
- print*, 'Original disc angular momentum vector L_tot:', L_tot
- print*, 'After z-rotation L_tot_rotated:', L_tot_rotated
- print*, 'Rotation angles - about z:', rotate_about_z*180./pi, ' about y:', rotate_about_y*180./pi
-
- ! Rotate all particle positions and velocities
- do i=1, npart
-   ! Rotate positions
-   pos_vec = xyzh(1:3,i)
-   call rotatevec(pos_vec,(/0.,0.,1./),rotate_about_z)
-   call rotatevec(pos_vec,(/0.,1.,0./),rotate_about_y)
-   xyzh(1:3,i) = pos_vec
-
-   ! Rotate velocities
-   vel_vec = vxyzu(1:3,i)
-   call rotatevec(vel_vec,(/0.,0.,1./),rotate_about_z)
-   call rotatevec(vel_vec,(/0.,1.,0./),rotate_about_y)
-   vxyzu(1:3,i) = vel_vec
- enddo
-
- ! Verify rotation
- call get_total_angular_momentum(xyzh,vxyzu,npart,L_tot_rotated)
- print*, 'Final L_tot after rotation:', L_tot_rotated
- print*, 'Should be close to (0,0,|L|):', sqrt(dot_product(L_tot_rotated,L_tot_rotated))
-
-end subroutine rotate_coordinates
-
-
-!-------------------------------------------
-!+
 ! Read options for analysis from file
 !+
 !-------------------------------------------
@@ -310,6 +245,71 @@ subroutine read_analysis_options
  print*, 'Using ieos=',ieos
  
 end subroutine read_analysis_options
+
+
+!-------------------------------------------
+!+
+! Rotates particle coordinates to align disc plane with xy-plane
+!+
+!-------------------------------------------
+subroutine rotate_coordinates(npart,xyzh,vxyzu,L_tot,rotate_about_z,rotate_about_y)
+ use vectorutils, only:rotatevec
+ use physcon, only:pi
+
+ integer, intent(in) :: npart
+ real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ real, intent(in) :: L_tot(3)
+ real, intent(out) :: rotate_about_z, rotate_about_y
+
+ integer :: i
+ real, dimension(3) :: temp, pos_vec, vel_vec
+ real :: temp_mag, L_tot_mag, L_tot_rotated(3)
+
+ ! Rotate so that L_tot is along z-axis
+ temp = (/L_tot(1),L_tot(2),0./)
+ temp_mag = sqrt(dot_product(temp,temp))
+
+ if (temp_mag > tiny(temp_mag) .and. abs(temp(2)) > tiny(temp(2))) then
+   rotate_about_z = -acos(dot_product((/1.,0.,0./),temp/temp_mag))*temp(2)/abs(temp(2))
+ else
+   rotate_about_z = 0.
+ endif
+
+ ! Now rotate about y-axis to get L_tot along z-axis
+ L_tot_rotated = L_tot
+ call rotatevec(L_tot_rotated,(/0.,0.,1./),rotate_about_z)
+ L_tot_mag = sqrt(dot_product(L_tot_rotated,L_tot_rotated))
+ if (L_tot_mag > tiny(L_tot_mag)) then
+   rotate_about_y = -acos(dot_product((/0.,0.,1./),L_tot_rotated/L_tot_mag))
+ else
+   rotate_about_y = 0.
+ endif
+
+ print*, 'Original disc angular momentum vector L_tot:', L_tot
+ print*, 'After z-rotation L_tot_rotated:', L_tot_rotated
+ print*, 'Rotation angles - about z:', rotate_about_z*180./pi, ' about y:', rotate_about_y*180./pi
+
+ ! Rotate all particle positions and velocities
+ do i=1, npart
+   ! Rotate positions
+   pos_vec = xyzh(1:3,i)
+   call rotatevec(pos_vec,(/0.,0.,1./),rotate_about_z)
+   call rotatevec(pos_vec,(/0.,1.,0./),rotate_about_y)
+   xyzh(1:3,i) = pos_vec
+
+   ! Rotate velocities
+   vel_vec = vxyzu(1:3,i)
+   call rotatevec(vel_vec,(/0.,0.,1./),rotate_about_z)
+   call rotatevec(vel_vec,(/0.,1.,0./),rotate_about_y)
+   vxyzu(1:3,i) = vel_vec
+ enddo
+
+ ! Verify rotation
+ call get_total_angular_momentum(xyzh,vxyzu,npart,L_tot_rotated)
+ print*, 'Final L_tot after rotation:', L_tot_rotated
+ print*, 'Should be close to (0,0,|L|):', sqrt(dot_product(L_tot_rotated,L_tot_rotated))
+
+end subroutine rotate_coordinates
 
 
 !---------------------------------------------------
