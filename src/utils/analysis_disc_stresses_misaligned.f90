@@ -42,7 +42,8 @@ module analysis
  real,    allocatable,dimension(:)   :: mean_z,mean_vz,rms_z,rms_vz
 
  logical :: write_neighbour_list = .true.  ! Write the neighbour list to file, if true
- logical :: write_smalldump = .true.        ! Write a small dump of the rotated coordinates
+ logical :: write_smalldump_switch = .false.        ! Write a small dump of the rotated coordinates?
+ logical :: write_fulldump_switch = .true.       ! Write a full dump of the rotated coordinates?
  real, parameter :: sphere_radius = 100.0 ! Radius around sink to consider for disc angular momentum calculation
 
  private
@@ -54,7 +55,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use part,    only:gravity,mhd,eos_vars,nptmass,xyzmh_ptmass,vxyz_ptmass,isdead_or_accreted
  use eos,     only:ieos
  use eos_stamatellos, only:eos_file,read_optab,optable
- use readwrite_dumps, only:write_smalldump
+ use readwrite_dumps, only:write_smalldump, write_fulldump
 
  character(len=*), intent(in) :: dumpfile
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
@@ -167,8 +168,16 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  call write_radial_data(iunit,output,time,L_tot,rotate_about_z,rotate_about_y)
 
 ! Write small dump
- print*, 'Writing small dump of rotated coordinates to ', trim(dumpfile)//'_rot'
- call write_smalldump(time,dumpfile//'_rot')
+ if (write_smalldump_switch.eqv..true.) then
+    print*, 'Writing small dump of rotated coordinates to ', trim(dumpfile)//'_rot'
+    call write_smalldump(time,dumpfile//'_rot_small')
+ endif
+
+! Write full dump
+ if (write_fulldump_switch.eqv..true.) then
+    print*, 'Writing full dump of rotated coordinates to ', trim(dumpfile)//'_full'
+    call write_fulldump(time,dumpfile//'_rot_full')
+ endif
 
 ! End of analysis
  call deallocate_arrays
