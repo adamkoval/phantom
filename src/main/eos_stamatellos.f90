@@ -65,6 +65,7 @@ subroutine init_coolra()
  tau_store(:) = 0d0
  du_store(:) = 0d0
  duSPH(:) = 0d0
+ presi_store(:) = 0d0
  !open(unit=iunitst,file='EOSinfo.dat',status='replace')
  if (doFLD) then
     print *, "Using Forgan+ 2009 hybrid cooling method (FLD)"
@@ -85,6 +86,7 @@ subroutine finish_coolra()
  if (allocated(tau_store)) deallocate(tau_store)
  if (allocated(du_store)) deallocate(du_store)
  if (allocated(duSPH)) deallocate(duSPH)
+ if (allocated(presi_store)) deallocate(presi_store)
 ! close(iunitst)
 end subroutine finish_coolra
 
