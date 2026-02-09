@@ -18,13 +18,13 @@ program phantommoddump
 !   memory, moddump, options, part, prompting, readwrite_dumps,
 !   readwrite_infile, setBfield, setup_params, systemutils
 !
- use dim,             only:tagline,maxp_alloc
+ use dim,             only:tagline,maxp_alloc,ind_timesteps
  use eos,             only:polyk,ieos
  use eos_stamatellos, only:init_coolra,finish_coolra
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,mhd
  use io,              only:set_io_unit_numbers,iprint,idisk1,warning,fatal,iwritein,id,master
- use readwrite_dumps, only:read_dump,write_fulldump,is_not_mhd
+ use readwrite_dumps, only:read_dump,write_fulldump,is_not_mhd,dt_read_in
  use setBfield,       only:set_Bfield
  use moddump,         only:modify_dump,flags=>moddump_flags
  use readwrite_infile,only:write_infile,read_infile
@@ -35,6 +35,8 @@ program phantommoddump
  use checkconserved,  only:get_conserv
  use memory,          only:allocate_memory
  use systemutils,     only:get_command_option
+ use timestep,        only:dtmax,dtmax_user
+ use timestep_ind,    only:init_ibin
  implicit none
  integer :: nargs, i, nposargs
  character(len=120) :: dumpfilein,dumpfileout,arg,string
@@ -135,8 +137,6 @@ program phantommoddump
     call read_infile(infile,logfile,evfile,dumpfile)
  endif
 
-if (ieos == 24) call init_coolra()
-
 !
 !--reset logfile name
 !
@@ -154,10 +154,15 @@ if (ieos == 24) call init_coolra()
 !
  maxp_alloc = get_command_option('maxp',default=int(maxp_alloc))
  call allocate_memory(maxp_alloc)
+
+!--hotfix by AKoval on 09.02.26 to avoid segfaults AND correctly read in thermal arrays
+ if (ieos == 24) call init_coolra()
+
 !
 !--read particle setup from dumpfile
 !
  call read_dump(trim(dumpfilein),time,hfact,idisk1,iprint,0,1,ierr)
+ 
  if (timeout < 0.) timeout = time
  if (mhd .and. ierr==is_not_mhd) then
     ihavesetupB = .false.
@@ -187,6 +192,13 @@ if (ieos == 24) call init_coolra()
                        Bxyz,Bextx,Bexty,Bextz)
 
     endif
+ endif
+
+!--set dtmax_user from dtmax (read from .in file) so header is written correctly
+ dtmax_user = dtmax
+!--recompute ibin from dt_in so per-particle dt array is correct
+ if (ind_timesteps .and. dt_read_in) then
+    call init_ibin(npart,dtmax)
  endif
 
  call write_fulldump(timeout,dumpfileout,sphNG=idumpsphNG)

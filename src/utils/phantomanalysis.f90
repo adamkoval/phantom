@@ -17,12 +17,14 @@ program phantomanalysis
 ! :Dependencies: analysis, dim, eos, eos_stamatellos, externalforces,
 !   fileutils, infile_utils, io, kernel, part, readwrite_dumps
 !
- use dim,             only:tagline,do_nucleation,inucleation
+ use dim,             only:tagline,maxp_alloc,do_nucleation,inucleation
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart !,npartoftype
  use io,              only:set_io_unit_numbers,iprint,idisk1,ievfile,ianalysis
  use readwrite_dumps, only:read_dump,read_smalldump,is_small_dump
  use infile_utils,    only:open_db_from_file,inopts,read_inopt,close_db
  use fileutils,       only:numfromfile,basename
+ use memory,          only:allocate_memory
+ use systemutils,     only:get_command_option
  use analysis,        only:do_analysis,analysistype
  use eos,             only:ieos
  use eos_stamatellos, only:init_coolra,finish_coolra
@@ -83,6 +85,14 @@ program phantomanalysis
           close(ianalysis)
        endif
     endif
+
+    !
+    !--allocate memory BEFORE reading the first file
+    !  will be reallocated automatically if npart > maxp_alloc
+    !  but allows user to manually preset array sizes if necessary
+    !
+    maxp_alloc = get_command_option('maxp',default=int(maxp_alloc))
+    call allocate_memory(maxp_alloc)
 
     if (iarg==1 .and. ieos == 24) call init_coolra()
 !
