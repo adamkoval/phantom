@@ -41,9 +41,9 @@ module analysis
  real,    allocatable,dimension(:,:) :: gravxyz,zsetgas
  real,    allocatable,dimension(:)   :: mean_z,mean_vz,rms_z,rms_vz
 
- logical :: write_neighbour_list = .true.  ! Write the neighbour list to file, if true
+ logical :: write_neighbour_list = .false.  ! Write the neighbour list to file, if true
  logical :: write_smalldump_switch = .false.        ! Write a small dump of the rotated coordinates?
- logical :: write_fulldump_switch = .true.       ! Write a full dump of the rotated coordinates?
+ logical :: write_fulldump_switch = .false.       ! Write a full dump of the rotated coordinates?
  real, parameter :: sphere_radius = 100.0 ! Radius around sink to consider for disc angular momentum calculation
 
  private
