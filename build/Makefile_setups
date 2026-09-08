@@ -1272,3 +1272,13 @@ ifeq ($(SETUP), amuse)
     DUST_NUCLEATION=yes
     INJECT_PARTICLES=yes
 endif
+
+ifeq ($(SETUP), BB79)
+#   unit test for cooling radiation
+    SETUPFILE= setup_BB79.f90
+    ISOTHERMAL=yes
+    GRAVITY=yes
+    CONST_AV=yes
+    IND_TIMESTEPS=yes
+    KNOWN_SETUP=yes
+endif
