@@ -31,7 +31,7 @@ module setup
  public :: setpart
 
  private
- integer           :: np,ieos_in
+ integer           :: np,ieos_in,icooling
  real              :: Rcloud,Mcloud_msun,Temperature,mu,omega,amplitude
  character(len=32) :: default_cluster
  character(len=16) :: lattice
@@ -86,7 +86,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  omega       = 7.2e-13       ! angular velocity in rad/s
  amplitude   = 0.1           ! amplitude of m=2 perturbation
 
- !single protostellar core with ieos==24
+ !--single protostellar core with ieos==24
  default_cluster = "Rotating spherical cloud with density perturbation (Boss & Bodenheimer 1979)"
  Rcloud        = 4125.  ! Input radius [au]
  Mcloud_msun   = 1.     ! Input mass [Msun]
@@ -248,7 +248,10 @@ subroutine get_input_from_prompts()
  call prompt('Enter the mean molecular mass (used for initial sound speed)',mu)
  call prompt('Enter the angular velocity of the cloud (in rad/s)',omega,0.0)
  call prompt('Enter the amplitude of the m=2 perturbation',amplitude,0.0,1.0)
- if (maxvxyzu < 4) call prompt('Enter the EOS id (1: isothermal, 8: barotropic, 21: HII region expansion)',ieos_in)
+ if (maxvxyzu < 4) then
+   call prompt('Enter the EOS id (1: isothermal, 8: barotropic, 21: HII region expansion, 24: radiative)',ieos_in)
+   if (ieos_in == 24) call prompt('Enter icooling',icooling)
+ endif
  call prompt('Enter the lattice type (random,cubic,closepacked,hcp,hexagonal)',lattice)
 
 end subroutine get_input_from_prompts
