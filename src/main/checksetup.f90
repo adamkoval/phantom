@@ -1142,9 +1142,15 @@ subroutine check_cooling(xcom,vcom,nerror)
     endif
  endif
  !cooling requires adiabatic eos (e.g. ieos=2)
- if (icooling > 0 .and. .not. eos_allows_shock_and_work(ieos)) nerror = nerror+1
+ if (icooling > 0 .and. .not. eos_allows_shock_and_work(ieos)) then
+    print*,'ERROR: cooling requires an adiabatic EOS (e.g. ieos=2)'
+    nerror = nerror+1
+ endif
  !cooling requires shock and work contributions
- if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) nerror = nerror+1
+ if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) then
+    print*,'ERROR: cooling requires shock and work contributions'
+    nerror = nerror+1
+ endif
 
 end subroutine check_cooling
 
